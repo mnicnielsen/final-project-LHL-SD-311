@@ -32,36 +32,56 @@ X_dict = {
     'cd_4.0': [0],'cd_5.0': [0],'cd_6.0': [0],
     'cd_7.0': [0],'cd_8.0': [0],'cd_9.0': [0],
     'is_phone': [0],
-    'word_count_SS': [0],
+    'word_count': [0],
+    '72 Hour Violation': [0],
     'COVID-19': [0],
+    'Container Left Out': [0],
+    'Container Out Late': [0],
+    'Damaged/Knocked Over Pole': [0],
     'Dead Animal': [0],
     'Development Services - Code Enforcement': [0],
+    'Drain Inlet': [0],
     'Encampment': [0],
+    'Encroachment': [0],
     'Environmental Services Code Compliance': [0],
-    'Graffiti': [0],
-    'Graffiti - Code Enforcement': [0],
+    'Fallen/Hanging Tree Limb': [0],
+    'Flashing Traffic Signal Lights': [0],
+    'Graffiti Removal': [0],
+    'Graffiti Removal - Commercial': [0],
     'Illegal Dumping': [0],
+    'Litter': [0],
     'Missed Collection': [0],
     'Other': [0],
     'Oversized Vehicle': [0],
     'Parking': [0],
+    'Parking Zone Violation': [0],
     'Pavement Maintenance': [0],
+    'Potential Missed Collection': [0],
     'Pothole': [0],
+    'Quality of Life Issues': [0],
     'ROW Maintenance': [0],
+    'Resurfacing Evaluation': [0],
     'Right-of-Way Code Enforcement': [0],
     'Shared Mobility Device': [0],
     'Sidewalk Repair Issue': [0],
     'Stormwater': [0],
     'Stormwater Code Enforcement': [0],
+    'Stormwater Pollution Prevention': [0],
     'Street Flooded': [0],
     'Street Light Maintenance': [0],
+    'Street Light Out of Service': [0],
     'Street Sweeping': [0],
     'Traffic Engineering': [0],
     'Traffic Sign Maintenance': [0],
     'Traffic Signal Issue': [0],
+    'Traffic Signal Out of Service': [0],
     'Traffic Signal Timing': [0],
     'Trash/Recycling Collection': [0],
     'Tree Maintenance': [0],
+    'Tree Removal': [0],
+    'Tree Trimming for Pedestrian/Vehicle Clearance': [0],
+    'Trimming Request': [0],
+    'Vegetation Encroachment': [0],
     'Waste on Private Property': [0],
     'Weed Cleanup': [0],
     'w2v_0': [0], 'w2v_1': [0], 'w2v_2': [0], 'w2v_3': [0], 'w2v_4': [0], 
@@ -72,15 +92,20 @@ X_dict = {
     'w2v_25': [0],'w2v_26': [0],'w2v_27': [0],'w2v_28': [0],'w2v_29': [0]
     }
 
-# Create input boxes and assign dictionary values.
+# Create input boxes.
+    # date
 date_selected = st.date_input("Please enter the date for your request.")
+
+    # in_park
 in_park = st.selectbox("Does the request involve a location in a park?", ('No','Yes'))
-council_district = st.selectbox("In which Council District is the location of the request?", (1,2,3,4,5,6,7,8,9))
+
+    # council_district
+council_district = st.selectbox("In which Council District is the location of the request?", [1,2,3,4,5,6,7,8,9])
+
+    # is_phone
 is_phone = st.selectbox("How are you planning to make this request?",('Get It Done Mobile App', 'Get It Done Website', '311 Telephone Call'))
 
-req_list = ['COVID-19', 'Dead Animal','Development Services - Code Enforcement','Encampment','Environmental Services Code Compliance','Graffiti','Graffiti - Code Enforcement','Illegal Dumping','Missed Collection','Other','Oversized Vehicle','Parking','Pavement Maintenance','Pothole','ROW Maintenance','Right-of-Way Code Enforcement','Shared Mobility Device','Sidewalk Repair Issue','Stormwater','Stormwater Code Enforcement','Street Flooded','Street Light Maintenance','Street Sweeping','Traffic Engineering','Traffic Sign Maintenance','Traffic Signal Issue','Traffic Signal Timing','Trash/Recycling Collection','Tree Maintenance','Waste on Private Property','Weed Cleanup']
-type = st.selectbox("Please select the nature of your request.", req_list)
-
+# text input
 text = st.text_input('Please briefly describe your request:')
 
 # 1. DATE FEATURES
@@ -141,8 +166,7 @@ with open('../data/count_scaler.pkl', 'rb') as file:
 #set stopwords
 ENGstopwords = stopwords.words('english')
 
-#define cleaning function
-
+#define text cleaning function
 def clean(text):
     
     # remove punctuation    
@@ -175,44 +199,19 @@ def count_all_words(text):
         
     return len(tokens)
 
-#apploy functions
+#apply functions
 tokens = clean(text.lower())
 word_count = count_all_words(text.lower())
 
 #standardize
 #create df with scaled word counts (shape 1,1)
-word_count_SS = count_scaler.transform(pd.DataFrame({'word_count': [word_count]}))[0][0]
+if word_count > 0:
+    word_count = count_scaler.transform(pd.DataFrame({'word_count': [word_count]}))[0][0]
 
 #assign dictionary value
-X_dict['word_count_SS'][0] = word_count_SS
+if word_count > 0:
+    X_dict['word_count'][0] = word_count
 
-# 6. Type Feature
-#create index from which to search for request type
-for key in X_dict.keys():
-    if key == type:
-        X_dict[key][0] = 1
-
-# 7. w2v Feature
-# Step 1: Create a list of unique tokens from the words that were provided
-unique_tokens = list(set(tokens))
-
-# Step 2: Load pickled w2v model
-with open('../data/Model_CBoW.pkl', 'rb') as file:
-    Model_CBoW = pickle.load(file)
-
-# Step 3: Create vector from text
-text_vec = []
-i = 0
-while i < len(unique_tokens):
-    next_word_vec = Model_CBoW.wv[unique_tokens[i]]
-    
-    j = 0
-    while j < 30:
-        if i == 0:
-            text_vec.append(0)
-        text_vec[j] = text_vec[j] + next_word_vec[j]
-        j += 1
-    i+= 1
 
 
 # Step 4: Write a function to append each element of vector. The trick here will be import the saved pickles.  
@@ -221,22 +220,83 @@ def unpickle_scale(elem_num):
         scaler = pickle.load(file)
     X_dict['w2v_' + str(elem_num)] = list(scaler.transform(np.array(text_vec[elem_num]).reshape(-1, 1))[0])
 
-for i in list(range(30)):
-    unpickle_scale(i)
+# 7. w2v Feature
+if len(tokens) > 0:
+    # Step 1: Create a list of unique tokens from the words that were provided
+    unique_tokens = list(set(tokens))
+
+    # Step 2: Load pickled w2v model
+    with open('../data/Model_CBoW.pkl', 'rb') as file:
+        Model_CBoW = pickle.load(file)
+
+    # Step 3: Create vector from text
+    text_vec = []
+    i = 0
+    while i < len(unique_tokens):
+        next_word_vec = Model_CBoW.wv[unique_tokens[i]]
+        
+        j = 0
+        while j < 30:
+            if i == 0:
+                text_vec.append(0)
+            text_vec[j] = text_vec[j] + next_word_vec[j]
+            j += 1
+        i+= 1
+
+    for i in list(range(30)):
+        unpickle_scale(i)
 
 
-ok = st.button("Predict Response Time")
+    # categories
+        # load pickled df with categories and subcategories
 
-if ok == True:
+description_entered = st.button("Click here once you have entered a description of your request.")
 
-    if (len(tokens) == 0):
-        st.write("""Unfortunately, our system did not understand your request. Please be more descriptive or leave the text field blank. 
-        The more descriptive you are, the better our prediction will be about the response time for your request! """)
-    else:
-        X = pd.DataFrame(X_dict)
-        response_time = xg_reg.predict(X)
-        # st.write(max(0,round(response_time[0])))
-        st.write(text_vec)
+if description_entered == True:
+
+    st.write("""Based on your description of the request, our system has tried to classify the category and subcategory of your request. 
+    If this doesn't seem right to you, please use the dropdown menu to select the correct category and subcategory.""")
+
+    with open('../data/categories_df.pkl', 'rb') as file:
+        categories_df = pickle.load(file)
+
+    cat_list = list(categories_df.head(53).sort_values('service_name')['service_name'].drop_duplicates(keep='first').values)
+    cat = st.selectbox("Select request category:", cat_list)
+
+    #function to access list of subcategories based on category input
+    def subcategory(category):
+        sub_list = list(categories_df.head(53).sort_values('service_name')[categories_df.head(53).sort_values('service_name')['service_name'] == category]['detailed_type'].values)
+        return sub_list
+
+        # subcategories
+    subcat_list = subcategory(cat)
+    subcat = st.selectbox("Select request subcategory:", subcat_list)
+
+    # 6. Type Feature
+    #create index from which to search for request type
+    for key in X_dict.keys():
+        if key == subcat:
+            X_dict[key][0] = 1
+
+    # PSEUDOCODE FOR POPULATING THE DEFAULT VALUES. 
+
+    # test selectbox
+    values = [council_district,1,2,3,4,5,6,7,8,9]
+    default_ix = values.index(council_district)
+    test = st.selectbox("Default value test",values,index=default_ix)
+
+    ok = st.button("Predict Response Time")
+
+    if ok == True:
+
+        if (len(tokens) == 0):
+            st.write("""Unfortunately, our system did not understand your request. Please be more descriptive. 
+            The more descriptive you are, the better our prediction will be about the response time for your request! """)
+        else:
+            X = pd.DataFrame(X_dict)
+            response_time = xg_reg.predict(X)
+            st.write(max(0,round(response_time[0])))
+            # st.write('Hello World')
 
     
     
