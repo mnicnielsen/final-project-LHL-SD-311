@@ -13,6 +13,20 @@ from sklearn.model_selection import KFold
 import pickle
 import gensim
 
+from matplotlib import pyplot as plt
+import seaborn as sns
+from datetime import datetime
+
+
+import tensorflow as tf
+
+import os
+import datetime
+# import tensorflow_hub as hub
+from tensorflow import keras
+
+
+
 with open('../data/simple_model_g.pkl', 'rb') as file:
     xg_reg = pickle.load(file)
 
@@ -254,49 +268,148 @@ description_entered = st.button("Click here once you have entered a description 
 
 if description_entered == True:
 
-    st.write("""Based on your description of the request, our system has tried to classify the category and subcategory of your request. 
-    If this doesn't seem right to you, please use the dropdown menu to select the correct category and subcategory.""")
+    classification = 'class'
+    input_array = np.array([text])
+    class_array = np.array([classification])
+    input_dataset = tf.data.Dataset.from_tensor_slices((input_array, class_array))
 
-    with open('../data/categories_df.pkl', 'rb') as file:
-        categories_df = pickle.load(file)
+    for text, target in input_dataset.take(1):
+        print_test = 'description: {}, Target: {}'.format(text, target)
 
-    cat_list = list(categories_df.head(53).sort_values('service_name')['service_name'].drop_duplicates(keep='first').values)
-    cat = st.selectbox("Select request category:", cat_list)
+    with open('../data/detailed_types.pkl', 'rb') as file:
+        detailed_types = pickle.load(file)
+    
+    with open('../data/vals.pkl', 'rb') as file:
+        vals = pickle.load(file)
 
-    #function to access list of subcategories based on category input
-    def subcategory(category):
-        sub_list = list(categories_df.head(53).sort_values('service_name')[categories_df.head(53).sort_values('service_name')['service_name'] == category]['detailed_type'].values)
-        return sub_list
+    def fetch(text, labels):
+        return text, tf.one_hot(target(labels),len(detailed_types))
+    
+    table = tf.lookup.StaticHashTable(
+        initializer=tf.lookup.KeyValueTensorInitializer(
+            keys=tf.constant(detailed_types),
+            values=tf.constant(vals),
+        ),
+            default_value=tf.constant(-1),
+            name="target_encoding"
+    )
 
-        # subcategories
-    subcat_list = subcategory(cat)
-    subcat = st.selectbox("Select request subcategory:", subcat_list)
+    @tf.function
+    def target(x):
+        return table.lookup(x)
 
-    # 6. Type Feature
-    #create index from which to search for request type
-    for key in X_dict.keys():
-        if key == subcat:
-            X_dict[key][0] = 1
+    test_data, test_labels = next(iter(input_dataset.map(fetch).batch(1)))
 
-    # PSEUDOCODE FOR POPULATING THE DEFAULT VALUES. 
+    model = keras.models.load_model('../data/tf_model.pkl')
+    y_pred = model.predict(test_data)
 
-    # test selectbox
-    values = [council_district,1,2,3,4,5,6,7,8,9]
-    default_ix = values.index(council_district)
-    test = st.selectbox("Default value test",values,index=default_ix)
+    results_df = pd.DataFrame(y_pred)
+    results_df.columns = ['72 Hour Violation',
+    'COVID-19',
+    'Container Left Out',
+    'Container Out Late',
+    'Damaged/Knocked Over Pole',
+    'Dead Animal',
+    'Development Services - Code Enforcement',
+    'Drain Inlet',
+    'Encampment',
+    'Encroachment',
+    'Environmental Services Code Compliance',
+    'Fallen/Hanging Tree Limb',
+    'Flashing Traffic Signal Lights',
+    'Graffiti Removal',
+    'Graffiti Removal - Commercial',
+    'Illegal Dumping',
+    'Litter',
+    'Missed Collection',
+    'Other',
+    'Oversized Vehicle',
+    'Parking',
+    'Parking Zone Violation',
+    'Pavement Maintenance',
+    'Potential Missed Collection',
+    'Pothole',
+    'Quality of Life Issues',
+    'ROW Maintenance',
+    'Resurfacing Evaluation',
+    'Right-of-Way Code Enforcement',
+    'Shared Mobility Device',
+    'Sidewalk Repair Issue',
+    'Stormwater',
+    'Stormwater Code Enforcement',
+    'Stormwater Pollution Prevention',
+    'Street Flooded',
+    'Street Light Maintenance',
+    'Street Light Out of Service',
+    'Street Sweeping',
+    'Traffic Engineering',
+    'Traffic Sign Maintenance',
+    'Traffic Signal Issue',
+    'Traffic Signal Out of Service',
+    'Traffic Signal Timing',
+    'Trash/Recycling Collection',
+    'Tree Maintenance',
+    'Tree Removal',
+    'Tree Trimming for Pedestrian/Vehicle Clearance',
+    'Trimming Request',
+    'Vegetation Encroachment',
+    'Waste on Private Property',
+    'Weed Cleanup']
 
-    ok = st.button("Predict Response Time")
+    max_col = []
+    i=0
 
-    if ok == True:
+    while i < results_df.shape[1]:
+        if results_df.iloc[0,i] == results_df.iloc[0,:].max():
+            max_col.append(list(results_df.columns)[i])
+        i += 1
 
-        if (len(tokens) == 0):
-            st.write("""Unfortunately, our system did not understand your request. Please be more descriptive. 
-            The more descriptive you are, the better our prediction will be about the response time for your request! """)
-        else:
-            X = pd.DataFrame(X_dict)
-            response_time = xg_reg.predict(X)
-            st.write(max(0,round(response_time[0])))
-            # st.write('Hello World')
+    st.write(max_col[0])
+    # st.write(text)
+
+    # st.write("""Based on your description of the request, our system has tried to classify the category and subcategory of your request. 
+    # If this doesn't seem right to you, please use the dropdown menu to select the correct category and subcategory.""")
+
+    # with open('../data/categories_df.pkl', 'rb') as file:
+    #     categories_df = pickle.load(file)
+
+    # cat_list = list(categories_df.head(53).sort_values('service_name')['service_name'].drop_duplicates(keep='first').values)
+    # cat = st.selectbox("Select request category:", cat_list)
+
+    # #function to access list of subcategories based on category input
+    # def subcategory(category):
+    #     sub_list = list(categories_df.head(53).sort_values('service_name')[categories_df.head(53).sort_values('service_name')['service_name'] == category]['detailed_type'].values)
+    #     return sub_list
+
+    #     # subcategories
+    # subcat_list = subcategory(cat)
+    # subcat = st.selectbox("Select request subcategory:", subcat_list)
+
+    # # 6. Type Feature
+    # #create index from which to search for request type
+    # for key in X_dict.keys():
+    #     if key == subcat:
+    #         X_dict[key][0] = 1
+
+    # # PSEUDOCODE FOR POPULATING THE DEFAULT VALUES. 
+
+    # # test selectbox
+    # values = [council_district,1,2,3,4,5,6,7,8,9]
+    # default_ix = values.index(council_district)
+    # test = st.selectbox("Default value test",values,index=default_ix)
+
+    # ok = st.button("Predict Response Time")
+
+    # if ok == True:
+
+    #     if (len(tokens) == 0):
+    #         st.write("""Unfortunately, our system did not understand your request. Please be more descriptive. 
+    #         The more descriptive you are, the better our prediction will be about the response time for your request! """)
+    #     else:
+    #         X = pd.DataFrame(X_dict)
+    #         response_time = xg_reg.predict(X)
+    #         st.write(max(0,round(response_time[0])))
+    #         # st.write('Hello World')
 
     
     
