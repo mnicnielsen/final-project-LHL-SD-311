@@ -255,7 +255,7 @@ if text != '':
 
             test_data, test_labels = next(iter(input_dataset.map(fetch).batch(1)))
 
-            model = keras.models.load_model('../data/tf_model.pkl')
+            model = keras.models.load_model('../data/tf_model_20.pkl')
             y_pred = model.predict(test_data)
 
             results_df = pd.DataFrame(y_pred)
